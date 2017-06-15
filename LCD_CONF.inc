@@ -1,0 +1,510 @@
+ 
+;==============LCD PORT MAP-FSD01 ===============================
+;=========== INTERFACE DE 4 BITS EN PARALELO ====================
+#DEFINE	    DATA_PORT	PORTD
+#DEFINE	    DATA3   PORTD,RD4
+#DEFINE	    DATA2   PORTD,RD5
+#DEFINE	    DATA1   PORTD,RD6
+#DEFINE	    DATA0   PORTD,RD7
+ 
+#DEFINE	    RS	    PORTD,RD0	;bit para enviar datos o comandos
+#DEFINE	    E	    PORTD,RD1	;bit para activar la pantalla
+ 
+;#DEFINE	    RS	     PORTE,0	;bit para enviar datos o comandos
+;#DEFINE	    E	     PORTE,2	;bit para activar la pantalla 
+;================================================================
+    
+
+ 
+LCD_CONF:        
+    BANKSEL	    TRISA
+    MOVLW	    0X0F
+    ANDWF	    DATA_PORT	; ITS OPERATION MASK THE HIGH NIBLE , DO OT AFFECT PREVIOUSLY CONFIGURATION  
+    BCF		    RS  ; TO SEND ASCII DATA
+    BCF		    E   ; DISABLE EN
+    BANKSEL 	    PORTA
+    CLRF	    DATA_PORT
+    BCF		    RS  ; TO SEND ASCII DATA
+    BCF		    E   ; DISABLE EN
+    RETURN
+LCD_INIT:	
+    CALL	    LCD_CONF	 
+    ;THE NEXT CODE HAS BEEN WRITE FOLLOW THE DATASHET TO CONTROLLER HD447DU PAGE 45 FOR PARALLEL INTERFACE OF 4 BITS 
+
+    CALL	    Retardo_50ms	; IT'S ALLOW THE INICIALIZATION OF PERIPHERICALS
+    MOVLW	    0X33
+    CALL	    LCD_CMD
+    CALL    	    Retardo_500micros
+    MOVLW	    0X32
+    CALL    	    LCD_CMD	    
+    MOVLW	    0X28   ; CONFIGURACION DEL FUNCION SET	    "PAG_46"
+    CALL	    LCD_CMD
+    MOVLW	    0X0C   ; CONFIGURACION DEL DISPLAY ON/OFF CONTROL  "PAG_24"
+    CALL	    LCD_CMD
+    MOVLW	    0X06   ; CONFIGURACION DEL ENTRY MODE SET, NO DESPLAZA EL DATO  "PAG_24"
+    CALL	    LCD_CMD
+    MOVLW	    0X0E
+    CALL	    LCD_CMD
+    MOVLW	    0X01   ; PRIMERA POSICION DE LA LCD Ó BORRAR DISPLAY	"PAG_24"
+    call	    LCD_CMD
+    
+    RETURN	
+	
+	
+	
+LCD_CMD:
+	
+	BCF	RS
+	MOVWF	PUERTO
+	CALL	SEND_DATA
+	BSF	E
+	CALL	Retardo_200micros
+	BCF	E
+	CALL	Retardo_10ms
+	SWAPF	PUERTO,F    ; ENVIAMOS EL NIBLE BAJO DEL COMANDO
+	CALL	SEND_DATA
+	BSF	E
+	CALL	Retardo_200micros
+	BCF	E
+	CALL	Retardo_10ms
+	RETURN
+	
+LCD_DAT:    
+    
+    BSF		    RS		    ;En uno para enviar datos
+    MOVWF	    PUERTO	    ;movemos el valor de w al puerto d para enviar dato a LCD
+    CALL	    SEND_DATA    
+    BSF		    E
+    CALL    	    Retardo_200micros
+    BCF		    E
+    CALL	    Retardo_10ms
+    SWAPF	    PUERTO,F
+    CALL	    SEND_DATA    
+    BSF		    E
+    CALL	    Retardo_200micros
+    BCF		    E
+    CALL	    Retardo_10ms
+    RETURN	
+
+LCD_CLR:
+    MOVLW   0X01
+    CALL    LCD_CMD
+    RETURN
+LCD_1:
+    MOVLW   0X02
+    CALL    LCD_CMD
+    RETURN
+LCD_2:
+    MOVLW   0XC0
+    CALL    LCD_CMD
+    RETURN
+    
+LCD_CLR_FIRST:
+        MOVLW	0X80
+	CALL	LCD_CMD
+	
+	CLRF	COUNT
+	
+	MOVLW	.17
+	MOVWF	AUX
+TLL	DECFSZ	AUX
+	GOTO	$+2
+	RETURN
+	MOVLW	" "
+	CALL	LCD_DAT
+	INCF	COUNT
+	GOTO	TLL ; CONTADOR  
+LCD_CLR_SEC:
+        MOVLW	0XC0
+	CALL	LCD_CMD
+	CLRF	COUNT
+	
+	MOVLW	.17
+	MOVWF	AUX
+TL	DECFSZ	AUX
+	GOTO	$+2
+	RETURN
+	MOVLW	" "
+	CALL	LCD_DAT
+	INCF	COUNT
+	GOTO	TL ; CONTADOR  
+	
+
+
+L_CURSOR:
+    MOVLW	    0X10   ; CONFIGURACION DEL DISPLAY ON/OFF CONTROL	    "PAG_24"
+    CALL	    LCD_CMD
+    RETURN
+
+R_CURSOR:
+    MOVLW	    0X14   ; CONFIGURACION DEL DISPLAY ON/OFF CONTROL	    "PAG_24"
+    CALL	    LCD_CMD
+    RETURN
+
+SEND_DATA:
+    MOVLW	    0X0F    
+    ANDWF	    DATA_PORT,F	; ENMASCARAMOS DEJANDO PASAR LOS 4 BITS BAJOS
+    MOVLW	    0XF0	
+    ANDWF	    PUERTO,W
+    IORWF	    DATA_PORT,F
+    RETURN
+
+LCD_BIN_DEC:	
+    MOVLW   0X30
+    ADDWF   UNI
+    ADDWF   DEC
+    ADDWF   CEN
+    MOVF    CEN,W
+    CALL    LCD_DAT
+    MOVF    DEC,W
+    CALL    LCD_DAT
+    MOVF    UNI,W
+    CALL    LCD_DAT
+    RETURN
+
+WELCOME:   ; MENSAJE DE BIENVENIDA
+	MOVLW   "B"
+	CALL    LCD_DAT
+	MOVLW   "I"
+	CALL    LCD_DAT
+	MOVLW   "E"
+	CALL    LCD_DAT
+	MOVLW   "N"
+	CALL    LCD_DAT	
+	MOVLW   "V"
+	CALL    LCD_DAT
+	MOVLW   "E"
+	CALL    LCD_DAT
+	MOVLW   "N"
+	CALL    LCD_DAT	
+	MOVLW   "I"
+	CALL    LCD_DAT
+	MOVLW   "D"
+	CALL    LCD_DAT
+	MOVLW   "O"
+	CALL    LCD_DAT	
+	MOVLW   "S"
+	CALL    LCD_DAT	
+	RETURN	
+	
+WAIT:
+	MOVLW   "E"
+	CALL    LCD_DAT
+	MOVLW   "S"
+	CALL    LCD_DAT
+	MOVLW   "P"
+	CALL    LCD_DAT
+	MOVLW   "E"
+	CALL    LCD_DAT	
+	MOVLW   "R"
+	CALL    LCD_DAT
+	MOVLW   "E"
+	CALL    LCD_DAT
+	MOVLW   ","
+	CALL    LCD_DAT	
+	MOVLW   " "
+	CALL    LCD_DAT
+	RETURN
+PASSWORD:
+	MOVLW   "C"
+	CALL    LCD_DAT
+	MOVLW   "O"
+	CALL    LCD_DAT
+	MOVLW   "N"
+	CALL    LCD_DAT
+	MOVLW   "T"
+	CALL    LCD_DAT	
+	MOVLW   "R"
+	CALL    LCD_DAT
+	MOVLW   "A"
+	CALL    LCD_DAT
+	MOVLW   "S"
+	CALL    LCD_DAT	
+	MOVLW   "E"
+	CALL    LCD_DAT
+	MOVLW   "N"
+	CALL    LCD_DAT	
+	MOVLW   "A"
+	CALL    LCD_DAT
+		MOVLW   ":"
+	CALL    LCD_DAT
+	RETURN
+	
+DIGITE:
+	MOVLW   "D"
+	CALL    LCD_DAT
+	MOVLW   "I"
+	CALL    LCD_DAT
+	MOVLW   "G"
+	CALL    LCD_DAT
+	MOVLW   "I"
+	CALL    LCD_DAT	
+	MOVLW   "T"
+	CALL    LCD_DAT
+	MOVLW   "E"
+	CALL    LCD_DAT
+	MOVLW   " "
+	CALL	LCD_DAT
+	MOVLW   "L"
+	CALL    LCD_DAT
+	MOVLW   "A"
+	CALL	LCD_DAT
+	RETURN
+	
+	
+LCD_ACTUAL:
+	CALL	LCD_CLR
+	MOVLW   "A"
+	CALL    LCD_DAT
+	MOVLW   "C"
+	CALL    LCD_DAT
+	MOVLW   "T"
+	CALL    LCD_DAT
+	MOVLW   "U"
+	CALL    LCD_DAT	
+	MOVLW   "A"
+	CALL    LCD_DAT
+	MOVLW   "L"
+	CALL    LCD_DAT
+	MOVLW   ":"
+	CALL	LCD_DAT
+	RETURN	
+LCD_NUEVA:
+	CALL    LCD_CLR_SEC
+	CALL	LCD_2
+	MOVLW   "N"
+	CALL    LCD_DAT
+	MOVLW   "U"
+	CALL    LCD_DAT
+	MOVLW   "E"
+	CALL    LCD_DAT
+	MOVLW   "V"
+	CALL    LCD_DAT	
+	MOVLW   "A"
+	CALL    LCD_DAT
+	MOVLW   " "
+	CALL    LCD_DAT
+	MOVLW   ":"
+	CALL	LCD_DAT
+	RETURN	
+ENTER:
+	CALL    LCD_CLR
+	MOVLW   "O"
+	CALL    LCD_DAT
+	MOVLW   "P"
+	CALL    LCD_DAT
+	MOVLW   "R"
+	CALL    LCD_DAT
+	MOVLW   "I"
+	CALL    LCD_DAT	
+	MOVLW   "M"
+	CALL    LCD_DAT
+	MOVLW   "A"
+	CALL    LCD_DAT
+	MOVLW   " "
+	CALL    LCD_DAT	
+	MOVLW   "E"
+	CALL    LCD_DAT
+	MOVLW   "N"
+	CALL    LCD_DAT	
+	MOVLW   "T"
+	CALL    LCD_DAT
+	MOVLW   "E"
+	CALL    LCD_DAT
+	MOVLW   "R"
+	CALL    LCD_DAT
+	
+	CALL	LCD_CLR_SEC
+	CALL	LCD_2
+	MOVLW   "Y"
+	CALL    LCD_DAT
+	MOVLW   " "
+	CALL    LCD_DAT
+	MOVLW   "E"
+	CALL    LCD_DAT
+	MOVLW   "L"
+	CALL    LCD_DAT	
+	MOVLW   "I"
+	CALL    LCD_DAT
+	MOVLW   "J"
+	CALL    LCD_DAT
+	MOVLW   "A"
+	CALL    LCD_DAT	
+	MOVLW   " "
+	CALL    LCD_DAT
+	MOVLW   "O"
+	CALL    LCD_DAT
+	MOVLW   "P"
+	CALL    LCD_DAT
+	MOVLW   "C"
+	CALL    LCD_DAT	
+	MOVLW   "I"
+	CALL    LCD_DAT
+	MOVLW   "O"
+	CALL    LCD_DAT
+	MOVLW   "N"
+	CALL    LCD_DAT	
+	RETURN
+	
+LCD_CHANGE_OK:
+	CALL    LCD_CLR
+	MOVLW   "C"
+	CALL    LCD_DAT
+	MOVLW   "A"
+	CALL    LCD_DAT
+	MOVLW   "M"
+	CALL    LCD_DAT
+	MOVLW   "B"
+	CALL    LCD_DAT	
+	MOVLW   "I"
+	CALL    LCD_DAT
+	MOVLW   "O"
+	CALL    LCD_DAT
+	MOVLW   " "
+	CALL    LCD_DAT	
+	MOVLW   "O"
+	CALL    LCD_DAT
+	MOVLW   "K"
+	CALL    LCD_DAT	
+	MOVLW   " "
+	CALL    LCD_DAT
+	MOVLW   " "
+	CALL    LCD_DAT
+	MOVLW   " "
+	CALL    LCD_DAT
+	
+	CALL	LCD_CLR_SEC
+	CALL	LCD_2
+	MOVLW   "I"
+	CALL    LCD_DAT
+	MOVLW   "N"
+	CALL    LCD_DAT
+	MOVLW   "I"
+	CALL    LCD_DAT
+	MOVLW   "C"
+	CALL    LCD_DAT	
+	MOVLW   "I"
+	CALL    LCD_DAT
+	MOVLW   "O"
+	CALL    LCD_DAT
+	RETURN
+	LCD_OPCIONES:
+	CALL    LCD_CLR
+	MOVLW   "N"
+	CALL    LCD_DAT
+	MOVLW   "U"
+	CALL    LCD_DAT
+	MOVLW   "E"
+	CALL    LCD_DAT
+	MOVLW   "V"
+	CALL    LCD_DAT	
+	MOVLW   "A"
+	CALL    LCD_DAT
+	MOVLW   " "
+	CALL    LCD_DAT
+	MOVLW   "C"
+	CALL    LCD_DAT	
+	MOVLW   "O"
+	CALL    LCD_DAT
+	MOVLW   "N"
+	CALL    LCD_DAT	
+	MOVLW   "T"
+	CALL    LCD_DAT
+	MOVLW   ":"
+	CALL    LCD_DAT
+	MOVLW   "1"
+	CALL    LCD_DAT
+	
+	CALL	LCD_CLR_SEC
+	CALL	LCD_2
+	MOVLW   "R"
+	CALL    LCD_DAT
+	MOVLW   "E"
+	CALL    LCD_DAT
+	MOVLW   "T"
+	CALL    LCD_DAT
+	MOVLW   "I"
+	CALL    LCD_DAT	
+	MOVLW   "R"
+	CALL    LCD_DAT
+	MOVLW   "0"
+	CALL    LCD_DAT
+	MOVLW   "S"
+	CALL    LCD_DAT	
+	MOVLW   " "
+	CALL    LCD_DAT
+	MOVLW   " "
+	CALL    LCD_DAT
+	MOVLW   " "
+	CALL    LCD_DAT
+	MOVLW   ":"
+	CALL    LCD_DAT	
+	MOVLW   "2"
+	CALL    LCD_DAT
+	RETURN
+LCD_RETIROS:
+	CALL    LCD_CLR
+	MOVLW   "1"
+	CALL    LCD_DAT
+	MOVLW   ")"
+	CALL    LCD_DAT
+	MOVLW   "5"
+	CALL    LCD_DAT
+	MOVLW   "0"
+	CALL    LCD_DAT	
+	MOVLW   "0"
+	CALL    LCD_DAT
+	MOVLW   "0"
+	CALL    LCD_DAT
+	MOVLW   " "
+	CALL    LCD_DAT	
+	MOVLW   " "
+	CALL    LCD_DAT
+	MOVLW   "2"
+	CALL    LCD_DAT	
+	MOVLW   ")"
+	CALL    LCD_DAT
+	MOVLW   "1"
+	CALL    LCD_DAT
+	MOVLW   "0"
+	CALL    LCD_DAT
+	MOVLW   "0"
+	CALL    LCD_DAT
+	MOVLW   "0"
+	CALL    LCD_DAT
+	MOVLW   "0"
+	CALL    LCD_DAT
+	
+	CALL	LCD_CLR_SEC
+	CALL	LCD_2
+	MOVLW   "3"
+	CALL    LCD_DAT
+	MOVLW   ")"
+	CALL    LCD_DAT
+	MOVLW   "1"
+	CALL    LCD_DAT
+	MOVLW   "5"
+	CALL    LCD_DAT	
+	MOVLW   "0"
+	CALL    LCD_DAT
+	MOVLW   "0"
+	CALL    LCD_DAT
+	MOVLW   "0"
+	CALL    LCD_DAT	
+	MOVLW   " "
+	CALL    LCD_DAT
+	MOVLW   "4"
+	CALL    LCD_DAT
+	MOVLW   ")"
+	CALL    LCD_DAT
+	MOVLW   "2"
+	CALL    LCD_DAT	
+	MOVLW   "0"
+	CALL    LCD_DAT
+	MOVLW   "0"
+	CALL    LCD_DAT
+	MOVLW   "0"
+	CALL    LCD_DAT
+	MOVLW   "0"
+	CALL    LCD_DAT	
+	RETURN

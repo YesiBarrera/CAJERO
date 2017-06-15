@@ -1,0 +1,772 @@
+   ;___________________
+   ;|1|  |2|   |3|  |4|
+   ;|=================|
+   ;|5|  |6|   |7|  |8|
+   ;|=================|
+   ;|9|  |10| |11| |12|
+   ;|=================|
+   ;|13| |14| |15| |16|
+   ;-------------------
+    
+    ; CONFIG1
+    ; __config 0xE3F2
+     __CONFIG _CONFIG1, _FOSC_INTRC_NOCLKOUT & _WDTE_OFF & _PWRTE_OFF & _MCLRE_ON & _CP_OFF & _CPD_OFF & _BOREN_ON & _IESO_OFF & _FCMEN_OFF & _LVP_OFF
+    ; CONFIG2
+    ; __config 0xFEFF
+     __CONFIG _CONFIG2, _BOR4V_BOR21V & _WRT_OFF
+     
+    
+    list p=16f887
+    #include "p16f887.inc"
+
+    CBLOCK  0X20
+    TECLA	    ;este reguistre es para asignar un valor de acuerdo con la tecla que sea pulsada en el teclado
+    STATE
+    AUX_0
+    SECUENCIA	    ;ESTE REGUISTRO ES PARA AVANZAR EN LA TABLA
+    AUX		    ;ESTE REGISTRO ES PARA SABER QUE TECLA FUE PULSADA
+    L_N_S	    ;LETRAS NUMEROS O SIGNOS 0,1,2
+    MAY_MIN	    ;REGUISTRO PARA LETRAS MAYUSCULAS O MINUSCULAS
+    PUERTO
+    
+    UNI
+    DEC
+    CEN
+    UNI_M
+    DEC_M
+    COUNT
+    
+    DATA_W
+    
+    PAS0
+    PAS1
+    PAS2
+    PAS3
+    
+    LCD_PASS
+    BITS
+    NUMBER
+    INTENTOS	; REGISTROS AUXILIARES DE NUMERO DE INTENTOS
+    INTEN   
+    ENDC
+
+    CBLOCK  0XF0
+    S_W
+    S_STATUS
+    ENDC
+
+    ORG	    .0
+    GOTO    INICIO
+    ORG	    .4
+    GOTO    ISR
+    RETFIE
+
+INICIO:
+    CALL    CONF_OSC	    ;CONFIGURACION DEL OSCILADOR
+    CALL    CONF_TECLADO    ;CONFIGURAMOS EL PUERTO B PARA USO DE TECLADO
+    CALL    LCD_INIT
+    CALL    CLR_REG
+    ;HABILITAMOS INTERRUPCION POR CAMBIO EN EL PUERTO B   
+PROGRAM:
+    CALL    WELCOME
+    CALL    LCD_2
+    CALL    WAIT
+    MOVLW   0XC9
+    CALL    LCD_CMD
+    MOVLW   "S"
+    CALL    LCD_DAT
+    MOVLW   .2
+    MOVWF   COUNT
+CERO:
+    DECFSZ  COUNT,F
+    GOTO    INIT_CAJERO
+PASS_0: ;PIDE CONTRASEÑA    
+    CALL    LCD_CLR
+    CALL    DIGITE
+
+    CALL    LCD_2
+    CALL    PASSWORD
+    BSF     INTCON,GIE      ;HABILITA INTERRUPCIONES 
+    BSF     INTCON,RBIE   
+    
+    MOVLW   0XCC
+    CALL    RD_PASSWORD   ;LEE LA MEMORIA 
+    CALL    COMP_PASSWORD ;COMPARA LOS VALORS
+    BTFSC   BITS,0
+    GOTO    EROR
+    
+    
+MENU: ;TOMADO COMO INICIO
+    CALL    ENTER
+    X1
+    CLRF    STATE
+    BSF     INTCON,RBIE	    ; HABILITAMOS LA INTERRUPCION MIENTRAS SE TOMA EL DATO
+    BTFSS   STATE,0
+    GOTO    $-1
+    MOVLW   0X0A
+    XORWF   TECLA,W
+    BTFSS   STATUS,Z
+    GOTO    X1
+    CALL    LCD_OPCIONES
+XM    
+    CLRF    STATE
+    BSF     INTCON,RBIE	    ; HABILITAMOS LA INTERRUPCION MIENTRAS SE TOMA EL DATO
+    BTFSS   STATE,0
+    GOTO    $-1
+    MOVLW   0X01
+    XORWF   TECLA,W
+    BTFSC   STATUS,Z
+    GOTO    NEW_CONT
+    
+    MOVLW   0X02
+    XORWF   TECLA,W
+    BTFSC   STATUS,Z
+    GOTO    RETIROS
+    GOTO    XM
+    
+    
+; TOMA LA PRIMERA CONTRASEÑA    
+      
+    
+    GOTO    $
+INIT_CAJERO:   
+    MOVLW   0XC8
+    CALL    LCD_CMD
+    MOVF    COUNT,W
+    ADDLW   0X30
+    CALL    LCD_DAT 
+    CALL    Retardo_2s
+    GOTO    CERO
+    
+EROR:
+    INCF    INTEN
+    BTFSC   INTEN,2
+    GOTO    FATAL_ERROR	; SE BLOQUE EL PROGRAMA MUCHOS ERRORES
+    CALL    LCD_CLR
+    MOVLW   "E"
+    CALL    LCD_DAT
+    MOVLW   "R"
+    CALL    LCD_DAT
+    MOVLW   "R"
+    CALL    LCD_DAT
+    MOVLW   "O"
+    CALL    LCD_DAT
+    MOVLW   "R"
+    CALL    LCD_DAT
+    GOTO    PASS_0
+    
+FATAL_ERROR:
+    CALL    LCD_CLR
+    MOVLW   "S"
+    CALL    LCD_DAT
+    MOVLW   "I"
+    CALL    LCD_DAT
+    MOVLW   "S"
+    CALL    LCD_DAT
+    MOVLW   "T"
+    CALL    LCD_DAT
+    MOVLW   "E"
+    CALL    LCD_DAT
+    MOVLW   "M"
+    CALL    LCD_DAT
+    MOVLW   "A"
+    CALL    LCD_DAT
+        CALL    LCD_2
+    MOVLW   "B"
+    CALL    LCD_DAT
+    MOVLW   "L"
+    CALL    LCD_DAT
+    MOVLW   "O"
+    CALL    LCD_DAT
+    MOVLW   "Q"
+    CALL    LCD_DAT
+    MOVLW   "U"
+    CALL    LCD_DAT
+    MOVLW   "E"
+    CALL    LCD_DAT
+    MOVLW   "A"
+    CALL    LCD_DAT
+    MOVLW   "D"
+    CALL    LCD_DAT
+    MOVLW   "O"
+    CALL    LCD_DAT
+    GOTO    $
+;LOOP:  
+RETIROS:
+    CALL    LCD_RETIROS
+XC
+    CLRF    STATE
+    BSF     INTCON,RBIE	    ; HABILITAMOS LA INTERRUPCION MIENTRAS SE TOMA EL DATO
+    BTFSS   STATE,0
+    GOTO    $-1
+    MOVLW   0X01
+    XORWF   TECLA,W
+    BTFSC   STATUS,Z
+    GOTO    CINCO
+    
+    MOVLW   0X02
+    XORWF   TECLA,W
+    BTFSC   STATUS,Z
+    GOTO    DIEZ
+    
+    MOVLW   0X03
+    XORWF   TECLA,W
+    BTFSC   STATUS,Z
+    GOTO    QUINCE
+    
+    MOVLW   0X04
+    XORWF   TECLA,W
+    BTFSC   STATUS,Z
+    GOTO    VEINTE
+    
+    
+    MOVLW   0X0B
+    XORWF   TECLA,W
+    BTFSC   STATUS,Z
+    GOTO    MENU
+    
+    MOVLW   0X0D
+    XORWF   TECLA,W
+    BTFSC   STATUS,Z
+    GOTO    PASS_0
+    GOTO    XC
+
+CINCO:
+    MOVLW   .4
+    CALL    RD_EEPROM
+    MOVWF   DATA_W
+    MOVLW   .5
+    SUBWF   DATA_W,F    
+    BTFSS   STATUS,C
+    GOTO    SIN_MONEY	; FONDOS INSUFICIENTES
+    MOVLW   .4
+    CALL    WR_EEPROM
+    CALL    Retardo_200ms
+    GOTO   SALDO
+
+ 
+ DIEZ:
+    MOVLW   .4
+    CALL    RD_EEPROM
+    MOVWF   DATA_W
+    MOVLW   .10
+    SUBWF   DATA_W,F    
+    BTFSS   STATUS,C
+    GOTO    SIN_MONEY	; FONDOS INSUFICIENTES
+    MOVLW   .4
+    CALL    WR_EEPROM
+    CALL    Retardo_200ms
+    GOTO    SALDO
+   
+QUINCE:
+    MOVLW   .4
+    CALL    RD_EEPROM
+    MOVWF   DATA_W
+    MOVLW   .15
+    SUBWF   DATA_W,F    
+    BTFSS   STATUS,C
+    GOTO    SIN_MONEY	; FONDOS INSUFICIENTES
+    MOVLW   .4
+    CALL    WR_EEPROM
+    CALL    Retardo_200ms
+    GOTO    SALDO
+
+VEINTE:
+    MOVLW   .4
+    CALL    RD_EEPROM
+    MOVWF   DATA_W
+    MOVLW   .20
+    SUBWF   DATA_W,F    
+    BTFSS   STATUS,C
+    GOTO    SIN_MONEY	; FONDOS INSUFICIENTES
+    MOVLW   .4
+    CALL    WR_EEPROM
+    CALL    Retardo_200ms
+    GOTO    SALDO
+ 
+SALDO:
+	CALL	LCD_CLR
+	MOVLW   "S"
+	CALL    LCD_DAT	
+	MOVLW   "A"
+	CALL    LCD_DAT
+	MOVLW   "L"
+	CALL    LCD_DAT
+	MOVLW   "D"
+	CALL    LCD_DAT
+	MOVLW   "O"
+	CALL    LCD_DAT	
+	MOVLW   "="
+	CALL    LCD_DAT	
+	MOVLW   "$"
+	CALL    LCD_DAT	
+	MOVLW	.4
+	CALL	RD_EEPROM
+	CALL	BIN_DEC
+	CALL	LCD_BIN_DEC
+	MOVLW   "."
+	CALL    LCD_DAT	
+	MOVLW   "0"
+	CALL    LCD_DAT	
+	MOVLW   "0"
+	CALL    LCD_DAT	
+	MOVLW   "0"
+	CALL    LCD_DAT	
+	
+	CALL	LCD_2
+	MOVLW   "P"
+	CALL    LCD_DAT
+	MOVLW   "R"
+	CALL    LCD_DAT
+	MOVLW   "E"
+	CALL    LCD_DAT
+	MOVLW   "S"
+	CALL    LCD_DAT	
+	MOVLW   "I"
+	CALL    LCD_DAT
+	MOVLW   "O"
+	CALL    LCD_DAT
+	MOVLW   "N"
+	CALL    LCD_DAT	
+	MOVLW   "E"
+	CALL    LCD_DAT
+	MOVLW   " "
+	CALL    LCD_DAT
+	MOVLW   "E"
+	CALL    LCD_DAT	
+	MOVLW   "N"
+	CALL    LCD_DAT		
+	MOVLW   "T"
+	CALL    LCD_DAT	
+	MOVLW   "E"
+	CALL    LCD_DAT	
+	MOVLW   "R"
+	CALL    LCD_DAT	
+	MOVLW   "."
+	CALL    LCD_DAT	
+SS	
+    CLRF    STATE
+    BSF     INTCON,RBIE	    ; HABILITAMOS LA INTERRUPCION MIENTRAS SE TOMA EL DATO
+    BTFSS   STATE,0
+    GOTO    $-1
+    MOVLW   0X0A
+    XORWF   TECLA,W
+    BTFSC   STATUS,Z
+    GOTO    MENU
+    MOVLW   0X0B
+    XORWF   TECLA,W
+    BTFSC   STATUS,Z
+    GOTO    RETIROS
+    MOVLW   0X0D    ; VUELVE AL PRINCIPIO ,PIDE CONTRASEÑA
+    XORWF   TECLA,W
+    BTFSC   STATUS,Z
+    GOTO    PASS_0
+    GOTO    SS
+  
+   
+    
+SIN_MONEY:
+	CALL	LCD_CLR
+    	MOVLW   "S"
+	CALL    LCD_DAT
+	MOVLW   "A"
+	CALL    LCD_DAT
+	MOVLW   "L"
+	CALL    LCD_DAT
+	MOVLW   "D"
+	CALL    LCD_DAT	
+	MOVLW   "O"
+	CALL    LCD_DAT
+	
+	
+	CALL	LCD_2
+	MOVLW   "I"
+	CALL    LCD_DAT	
+	MOVLW   "N"
+	CALL    LCD_DAT
+	MOVLW   "S"
+	CALL    LCD_DAT
+	MOVLW   "U"
+	CALL    LCD_DAT	
+	MOVLW   "F"
+	CALL    LCD_DAT	
+	MOVLW   "I"
+	CALL    LCD_DAT	
+	MOVLW   "C"
+	CALL    LCD_DAT
+	MOVLW   "I"
+	CALL    LCD_DAT
+	MOVLW   "E"
+	CALL    LCD_DAT	
+	MOVLW   "N"
+	CALL    LCD_DAT	
+	MOVLW   "T"
+	CALL    LCD_DAT	
+	MOVLW   "E"
+	CALL    LCD_DAT	
+	GOTO	$   ; BLOQUEA EL PROGRAMA 
+    
+NEW_CONT:; NUEVA CONTRASEÑA GRABA EN EPROM LA NUEVA CONTRASEÑA
+    
+    INCF    INTENTOS
+    INCF    INTENTOS
+    
+XL0
+    INCF    INTENTOS
+    BTFSC   INTENTOS,3
+    GOTO    FATAL_ERROR
+    CALL    LCD_CLR
+    CALL    LCD_ACTUAL
+    MOVLW   0X8A
+    CALL    RD_PASSWORD
+    CALL    COMP_PASSWORD
+    BTFSC   BITS,0
+    GOTO    XL0
+    CALL    LCD_NUEVA
+    MOVLW   0XCA
+    CALL    RD_PASSWORD
+    CALL    WR_PASSWORD  
+    CALL    LCD_CLR
+    CALL    LCD_CHANGE_OK
+    CALL    Retardo_1s
+    GOTO    MENU
+
+COMP_PASSWORD:  ;COMPARA LAS CONTRASEÑAS BITS,0 =1 ERROR EN C0INCIDENCIA    
+    CLRW    ; LEE POSICION 0 DE LA EEPROM
+    CALL    RD_EEPROM
+    XORWF   PAS0,W
+    BTFSS   STATUS,Z
+    BSF	    BITS,0    ; CONTRASEÑA MAL    
+    
+    MOVLW   .1; LEE POSICION 1 DE LA EEPROM
+    CALL    RD_EEPROM
+    XORWF   PAS1,W
+    BTFSS   STATUS,Z
+    BSF	    BITS,0    ; CONTRASEÑA MAL
+    
+    MOVLW   .2; LEE POSICION 2 DE LA EEPROM
+    CALL    RD_EEPROM
+    XORWF   PAS2,W
+    BTFSS   STATUS,Z
+    BSF	    BITS,0    ; CONTRASEÑA MAL    
+    
+    MOVLW   .3; LEE POSICION 3 DE LA EEPROM
+    CALL    RD_EEPROM
+    XORWF   PAS3,W
+    BTFSS   STATUS,Z
+    BSF	    BITS,0    ; CONTRASEÑA MAL
+    BTFSS   BITS,0
+    CLRF    BITS
+    RETURN
+   WR_PASSWORD:  ;COMPARA LAS CONTRASEÑAS BITS,0 =1 ERROR EN C0INCIDENCIA   
+    
+    MOVF    PAS0,W
+    MOVWF   DATA_W
+    CLRW    ; LEE POSICION 0 DE LA EEPROM
+    CALL    WR_EEPROM
+    CALL	Retardo_200ms     
+    MOVF    PAS1,W
+    MOVWF   DATA_W
+    MOVLW   .1   ; LEE POSICION 0 DE LA EEPROM
+    CALL    WR_EEPROM    
+    CALL	Retardo_200ms
+    
+    MOVF    PAS2,W
+    MOVWF   DATA_W
+    MOVLW   .2   ; LEE POSICION 0 DE LA EEPROM
+    CALL    WR_EEPROM
+    CALL	Retardo_200ms
+    
+    MOVF    PAS3,W
+    MOVWF   DATA_W
+    MOVLW   .3   ; LEE POSICION 0 DE LA EEPROM
+    CALL    WR_EEPROM
+    CALL	Retardo_200ms
+    RETURN
+ RD_PASSWORD:	; REGRESA CON LOS DATOS DIGITADOS EN LOS REGISTROS PAS0-PAS1-PAS2-PAS3
+    MOVWF   LCD_PASS	; TOMA UNA POSICION INICIAL DE VISUALIZACION EN LA LCD PARA LA CONTRASEÑA 
+    ; LCD_PASS SIRVE PARA DESPLAZAR EL CURSOR DE LA LCD    
+    MOVLW   0X04
+    CALL    LCD_CMD
+   
+RD_0
+    MOVF    LCD_PASS,W
+    CALL    LCD_CMD
+    MOVLW   " "
+    CALL    LCD_DAT
+    BSF	    INTCON,RBIE
+    CLRF    STATE
+    BTFSS   STATE,0
+    GOTO    $-1
+    
+    CLRF    STATE
+    BCF     INTCON,RBIE	    ; DESABILITAMOS LA INTERRUPCION MIENTRAS SE TOMA EL DATO
+    MOVF    TECLA,W
+    MOVWF   PAS0
+    XORLW   0X0C
+    BTFSS   STATUS,Z
+    GOTO    $+3
+    DECF    LCD_PASS
+    GOTO    RD_0
+    
+    MOVF    LCD_PASS,W
+    CALL    LCD_CMD
+    
+    MOVF    PAS0,W
+    ADDLW   0X30    ;OFFSET ASCCI
+    CALL    LCD_DAT
+    CALL    Retardo_500ms
+    MOVF    LCD_PASS,W
+    CALL    LCD_CMD
+    MOVLW   "*"
+    CALL    LCD_DAT
+    INCF    LCD_PASS
+    
+RD_1
+    MOVF    LCD_PASS,W
+    CALL    LCD_CMD
+    MOVLW   " "
+    CALL    LCD_DAT
+    BSF     INTCON,RBIE	    ; HABILITAMOS LA INTERRUPCION MIENTRAS SE TOMA EL DATO
+    
+    BTFSS   STATE,0
+    GOTO    $-1
+        CLRF    STATE
+    BCF     INTCON,RBIE	    ; DESABILITAMOS LA INTERRUPCION MIENTRAS SE TOMA EL DATO
+    MOVF    TECLA,W
+    MOVWF   PAS1
+    XORLW   0X0C
+    BTFSS   STATUS,Z
+    GOTO    $+3
+    DECF    LCD_PASS
+    GOTO    RD_0
+    
+    MOVF    LCD_PASS,W
+    CALL    LCD_CMD
+    MOVF    PAS1,W
+    
+    ADDLW   0X30    ;OFFSET ASCCI
+    CALL    LCD_DAT
+    CALL    Retardo_500ms
+    MOVF    LCD_PASS,W
+    CALL    LCD_CMD
+    MOVLW   "*"
+    CALL    LCD_DAT
+    INCF    LCD_PASS
+RD_2
+    MOVF    LCD_PASS,W
+    CALL    LCD_CMD
+    MOVLW   " "
+    CALL    LCD_DAT
+    BSF     INTCON,RBIE	    ; HABILITAMOS LA INTERRUPCION MIENTRAS SE TOMA EL DATO
+    
+    
+    
+    BTFSS   STATE,0
+    GOTO    $-1
+    CLRF    STATE
+    BCF     INTCON,RBIE	    ; DESABILITAMOS LA INTERRUPCION MIENTRAS SE TOMA EL DATO
+    MOVF    TECLA,W
+    MOVWF   PAS2
+    XORLW   0X0C
+    BTFSS   STATUS,Z
+    GOTO    $+3
+    DECF    LCD_PASS
+    GOTO    RD_1
+    
+    MOVF    LCD_PASS,W
+    CALL    LCD_CMD
+    MOVF    PAS2,W
+    ADDLW   0X30    ;OFFSET ASCCI
+    CALL    LCD_DAT
+    CALL    Retardo_500ms
+    MOVF    LCD_PASS,W
+    CALL    LCD_CMD
+    MOVLW   "*"
+    CALL    LCD_DAT
+    INCF    LCD_PASS
+    
+RD_3
+    MOVF    LCD_PASS,W
+    CALL    LCD_CMD
+    MOVLW   " "
+    CALL    LCD_DAT
+    BSF     INTCON,RBIE	    ; HABILITAMOS LA INTERRUPCION MIENTRAS SE TOMA EL DATO
+    
+    
+    BTFSS   STATE,0
+    GOTO    $-1
+    CLRF    STATE
+    BCF     INTCON,RBIE	    ; DESABILITAMOS LA INTERRUPCION MIENTRAS SE TOMA EL DATO
+    MOVF    TECLA,W
+    MOVWF   PAS3
+    XORLW   0X0C
+    BTFSS   STATUS,Z
+    GOTO    $+3
+    DECF    LCD_PASS
+    GOTO    RD_2
+    
+    MOVF    LCD_PASS,W
+    CALL    LCD_CMD
+    MOVF    PAS3,W
+    ADDLW   0X30    ;OFFSET ASCCI
+    CALL    LCD_DAT
+    CALL    Retardo_500ms
+    MOVF    LCD_PASS,W
+    CALL    LCD_CMD
+    MOVLW   "*"
+    CALL    LCD_DAT
+    
+    
+ RD_4
+    BSF     INTCON,RBIE	    ; HABILITAMOS LA INTERRUPCION MIENTRAS SE TOMA EL DATO
+    CLRF    STATE
+       BTFSS   STATE,0
+    GOTO    $-1
+    CLRF    STATE
+    BCF     INTCON,RBIE	    ; DESABILITAMOS LA INTERRUPCION MIENTRAS SE TOMA EL DATO
+    MOVF    TECLA,W
+    XORLW   0X0C
+    BTFSS   STATUS,Z
+    GOTO    $+3
+NOP
+    GOTO    RD_3
+    
+    MOVLW   0X06
+    CALL    LCD_CMD
+    RETURN
+    
+PUSH:			;en esta rutina se guarda el contexto
+    MOVWF   S_W
+    SWAPF   STATUS,W
+    MOVWF   S_STATUS
+    RETURN
+
+POP:			;en esta rutina se recupera el contexto
+    SWAPF   S_STATUS,W
+    MOVWF   STATUS
+    SWAPF   S_W,F
+    SWAPF   S_W,W
+    RETURN
+
+ISR:
+    BCF	    INTCON,GIE      ;DESABILITAMOS TODAS LAS INTERRUPCIONES
+    CALL    PUSH	    ;SALVAMOS W Y STATUS
+    BTFSS   INTCON,RBIF
+    GOTO    FIN_ISR
+    CALL    Retardo_10ms
+    
+;VERIFICA PRIMERA COLUMNA DE IZQUIERDA A DERECHA
+    MOVLW   0XF7
+    MOVWF   PORTB
+    MOVLW   .128
+    BTFSS   PORTB,7
+    MOVLW   0X0E
+    BTFSS   PORTB,6
+    MOVLW   .7
+    BTFSS   PORTB,5
+    MOVLW   .4;.5
+    BTFSS   PORTB,4
+    MOVLW   .1
+;VERIFICA SEGUNDA COLUMNA
+    RRF	    PORTB
+    BSF	    PORTB,3
+    BTFSS   PORTB,7
+    MOVLW   .0
+    BTFSS   PORTB,6
+    MOVLW   .8
+    BTFSS   PORTB,5
+    MOVLW   .5;.6
+    BTFSS   PORTB,4
+    MOVLW   .2
+;VERIFICA TERCERA COLUMNA
+    RRF	    PORTB
+    BSF	    PORTB,3
+    BTFSS   PORTB,7
+    MOVLW   0X0F
+    BTFSS   PORTB,6
+    MOVLW   .9
+    BTFSS   PORTB,5
+    MOVLW   .6
+    BTFSS   PORTB,4
+    MOVLW   .3
+;VERIFICA CUARTA COLUMNA
+    RRF	    PORTB
+    BSF	    PORTB,3
+    BTFSS   PORTB,7
+    MOVLW   0X0D
+    BTFSS   PORTB,6
+    MOVLW   0X0C
+    BTFSS   PORTB,5
+    MOVLW   0X0B
+    BTFSS   PORTB,4
+    MOVLW   0X0A
+
+
+    MOVWF   TECLA
+    INCF    STATE
+    
+    MOVLW   0XF0
+    MOVWF   PORTB
+    CALL    Retardo_10ms
+    
+    BTFSS   PORTB,RB4
+    GOTO    $-1
+    BTFSS   PORTB,RB5
+    GOTO    $-1
+    BTFSS   PORTB,RB6
+    GOTO    $-1
+    BTFSS   PORTB,RB7
+    GOTO    $-1
+
+    MOVLW   .128
+    XORWF   TECLA,W
+    BTFSC   STATUS,Z
+    CALL    NO_PUSH ; RUTINA QUE INDICA QUE NO FUE PULSADA UNA TECLA
+
+FIN_ISR:
+    MOVLW   0XF0
+    MOVWF   PORTB
+    CALL    POP         ;RECUPERAMOS W Y STATUS
+    BCF	    INTCON,RBIF
+    RETFIE
+
+NO_PUSH:
+    CLRF    TECLA
+    INCF    AUX_0
+    RETURN
+
+BIN_DEC:
+	    CLRF    UNI
+	    CLRF    DEC
+	    CLRF    CEN
+	    MOVWF   NUMBER
+	    MOVLW   .100
+XX	    SUBWF   NUMBER,F
+	    BTFSS   STATUS,C	; NUMBER<100
+	    GOTO    X2 
+	    INCF    CEN
+	    GOTO    XX
+X2:	    ADDWF   NUMBER	;NUMBER+100
+	    MOVLW   .10
+XL	    SUBWF   NUMBER,F
+	    BTFSS   STATUS,C	; NUMBER<10
+	    GOTO    X3 
+	    INCF    DEC
+	    GOTO    XL
+X3:	    ADDWF   NUMBER
+	    MOVF    NUMBER,W
+	    MOVWF   UNI
+	    RETURN
+   
+#INCLUDE "HARDWARE.inc"
+#INCLUDE "LCD_CONF.inc"
+#include "EEPROM_RW.inc"
+#include "TECLADO.inc"
+#INCLUDE "Retardos.inc"
+    
+      ORG  0x2100
+	DT  .1,.2,.3,.4,.200  ; CLAVE :1234 , SALDO INICIAL=$200.000   
+
+END
+
